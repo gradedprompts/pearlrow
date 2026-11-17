@@ -1,0 +1,1790 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pearlrow</title>
+<style>
+  html, body {
+    margin: 0;
+    height: 100%;
+    overflow: hidden;
+    touch-action: none;
+    background: #f7e9cb;
+    color: #243833;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  #c {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    touch-action: none;
+  }
+  #pauseBtn {
+    position: fixed;
+    top: 8px;
+    right: 8px;
+    width: 44px;
+    height: 44px;
+    z-index: 3;
+    margin: 0;
+    padding: 0;
+    border: none;
+    border-radius: 14px;
+    background: #fffaf0;
+    box-shadow: 0 4px 16px rgba(40, 30, 10, 0.18);
+    cursor: pointer;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+  }
+  #pauseBtn span {
+    display: block;
+    width: 4px;
+    height: 16px;
+    border-radius: 2px;
+    background: #0d5c55;
+  }
+  .overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 4;
+    align-items: center;
+    justify-content: center;
+    background: rgba(16, 36, 34, 0.5);
+    padding: 8px;
+    box-sizing: border-box;
+  }
+  .card {
+    background: #fffaf0;
+    color: #243833;
+    border-radius: 18px;
+    padding: 16px 16px 14px;
+    width: min(300px, 100%);
+    box-sizing: border-box;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 18px 50px rgba(40, 30, 10, 0.2);
+  }
+  .card h1, .card h2, .card p { margin: 0; }
+  .card h2 { font-size: 26px; line-height: 1.15; color: #143f3a; }
+  #title h1 {
+    font-size: 48px;
+    line-height: 1;
+    color: #0f4f4a;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+  }
+  .kicker {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    color: #17857a;
+  }
+  .lede { font-size: 15px; color: #3d564f; }
+  .under, #controls, .rec { font-size: 12px; color: #4e645d; line-height: 1.3; }
+  #controls { display: flex; flex-direction: column; gap: 2px; }
+  .title-copy, .title-actions {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  .play-label { font-size: 13px; font-weight: 700; color: #17857a; }
+  .level-row { display: flex; gap: 6px; width: 100%; }
+  .lvl { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .level-row button { padding: 8px 4px; font-size: 15px; }
+  .rec { font-size: 11px; }
+  .soundline {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 15px;
+    color: #243833;
+  }
+  .soundline input { width: 18px; height: 18px; margin: 0; }
+  .for-coarse { display: none; }
+  .card button {
+    appearance: none;
+    -webkit-appearance: none;
+    min-height: 44px;
+    width: 100%;
+    border: none;
+    border-radius: 12px;
+    background: #17857a;
+    color: #f7fffc;
+    font: 700 16px/1.2 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    cursor: pointer;
+    padding: 10px 12px;
+    box-sizing: border-box;
+  }
+  .card button:hover { background: #146e65; }
+  .card button:active { background: #0d5c55; }
+  #over .card p, #paused .card p { font-size: 14px; line-height: 1.3; color: #3a524c; }
+  @media (pointer: coarse) {
+    .for-fine { display: none; }
+    .for-coarse { display: block; }
+  }
+  @media (max-height: 429px) {
+    #title .card {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      align-items: center;
+      width: min(540px, 100%);
+      gap: 6px 16px;
+      padding: 8px 12px;
+    }
+    #title .card { gap: 4px 12px; padding: 6px 10px; }
+    #title h1 { font-size: 34px; }
+    #title .lede, #title .kicker, #title .play-label { font-size: 12px; }
+    #title .under, #title #controls, #title .rec { font-size: 11px; }
+    #title .title-copy, #title .title-actions { gap: 3px; }
+    #paused .card, #over .card { gap: 4px; padding: 8px 12px; }
+    .card h2 { font-size: 22px; }
+    #over .card p, #paused .card p { font-size: 13px; line-height: 1.25; }
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<button id="pauseBtn" type="button" aria-label="Pause" style="display:none"><span></span><span></span></button>
+<div id="title" class="overlay" style="display:flex"><div class="card"><div class="title-copy"><p class="kicker">FOUR IN A ROW</p><h1>Pearlrow</h1><p class="lede">Drop your pearls. Line up four.</p><div id="controls"><p class="for-fine">Click a column, or ← → and Space</p><p class="for-fine">1 to 7 drop straight in · P pauses · M sound</p><p class="for-coarse">Tap a column to drop a pearl</p><p class="for-coarse">Or press, slide to aim, lift to drop</p></div></div><div class="title-actions"><p class="play-label">Play the computer</p><div class="level-row"><div class="lvl"><button id="easyBtn" type="button">Easy</button><p id="easyRec">No wins yet</p></div><div class="lvl"><button id="normalBtn" type="button">Normal</button><p id="normalRec">No wins yet</p></div><div class="lvl"><button id="hardBtn" type="button">Hard</button><p id="hardRec">No wins yet</p></div></div><button id="duoBtn" type="button">2 Players</button><p class="under">Take turns on one screen</p><label class="soundline">Sound<input id="soundTitle" type="checkbox" checked></label></div></div></div>
+<div id="paused" class="overlay" style="display:none"><div class="card"><h2>Paused</h2><p id="pausedSub"></p><button id="resumeBtn" type="button">Resume</button><button id="restartBtn" type="button">Restart game</button><button id="menuBtn" type="button">Menu</button><label class="soundline">Sound<input id="soundPaused" type="checkbox" checked></label></div></div>
+<div id="over" class="overlay" style="display:none"><div class="card"><h2 id="overTitle"></h2><p id="overNote"></p><p id="overRec"></p><p id="overNext"></p><p id="overStar" style="display:none"></p><button id="rematchBtn" type="button">Rematch</button><button id="overMenuBtn" type="button">Menu</button></div></div>
+<script>
+(function () {
+  "use strict";
+
+  function mulberry32(a) { return function () { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+
+  var FONT = "ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif";
+
+  var canvas = document.getElementById("c");
+  var ctx = canvas.getContext("2d");
+  var pauseBtn = document.getElementById("pauseBtn");
+  var titleEl = document.getElementById("title");
+  var pausedEl = document.getElementById("paused");
+  var overEl = document.getElementById("over");
+  var duoBtn = document.getElementById("duoBtn");
+  var pausedSub = document.getElementById("pausedSub");
+  var resumeBtn = document.getElementById("resumeBtn");
+  var restartBtn = document.getElementById("restartBtn");
+  var menuBtn = document.getElementById("menuBtn");
+  var overTitle = document.getElementById("overTitle");
+  var overNote = document.getElementById("overNote");
+  var overRec = document.getElementById("overRec");
+  var overNext = document.getElementById("overNext");
+  var rematchBtn = document.getElementById("rematchBtn");
+  var overMenuBtn = document.getElementById("overMenuBtn");
+  var easyBtn = document.getElementById("easyBtn");
+  var normalBtn = document.getElementById("normalBtn");
+  var hardBtn = document.getElementById("hardBtn");
+  var easyRec = document.getElementById("easyRec");
+  var normalRec = document.getElementById("normalRec");
+  var hardRec = document.getElementById("hardRec");
+  var soundTitle = document.getElementById("soundTitle");
+  var soundPaused = document.getElementById("soundPaused");
+  var overStar = document.getElementById("overStar");
+
+  var screen = "title";
+  var gameMode = "duo";
+  var firstPlayer = "coral";
+  var turn = "coral";
+  var phase = "aim";
+  var tick = 0;
+  var moves = [];
+  var cells = emptyCells();
+  var heights = [0, 0, 0, 0, 0, 0, 0];
+  var aim = 3;
+  var winner = null;
+  var winLines = [];
+  var duo = [0, 0];
+  var callout = null;
+  var calloutFading = false;
+  var calloutFade = 0;
+  var setPosition = false;
+  var gameSeed = 0;
+  var rng = null;
+  var fallK = 0;
+  var fallN = 0;
+  var fallingSide = "coral";
+  var fallingCol = 0;
+  var fallingRow = 0;
+  var landIndex = -1;
+  var landTick = -100;
+  var winWait = 0;
+  var acc = 0;
+  var lastStamp = 0;
+  var downId = null;
+  var downAim = false;
+  var counted = false;
+  var firstStar = false;
+  var stats = freshStats();
+  var soundOn = true;
+  var thinkLeft = 0;
+  var thinkFrom = 3;
+  var thinkCol = 3;
+  var thinkReady = false;
+  var lastFrom = { coral: 3, pearl: 3 };
+  var effects = [];
+  var shakeUntil = -1;
+  var demoGap = 0;
+  var audioCtx = null;
+  var gameGain = null;
+  var compressor = null;
+  var masterGain = null;
+  var analyser = null;
+  var waveBuf = null;
+  var audioPeakAbs = 0;
+  var noiseBuf = null;
+  var WINDOWS = [];
+  var WEIGHT = [0, 1, 6, 40];
+  var COL_ORDER = [3, 2, 4, 1, 5, 0, 6];
+
+  function emptyCells() {
+    var list = [];
+    for (var i = 0; i < 42; i++) list.push(0);
+    return list;
+  }
+
+  function freshStats() {
+    return {
+      easy: { won: 0, lost: 0, drawn: 0 },
+      normal: { won: 0, lost: 0, drawn: 0 },
+      hard: { won: 0, lost: 0, drawn: 0 }
+    };
+  }
+
+  function wholeStat(v) {
+    if (typeof v !== "number" || !Number.isInteger(v) || v < 0) return 0;
+    return v;
+  }
+
+  function loadStats() {
+    var base = freshStats();
+    try {
+      var raw = localStorage.getItem("pearlrow.stats");
+      if (!raw) return base;
+      var data = JSON.parse(raw);
+      var keys = ["easy", "normal", "hard"];
+      for (var i = 0; i < keys.length; i++) {
+        var row = data && data[keys[i]];
+        if (!row || typeof row !== "object") continue;
+        base[keys[i]].won = wholeStat(row.won);
+        base[keys[i]].lost = wholeStat(row.lost);
+        base[keys[i]].drawn = wholeStat(row.drawn);
+      }
+    } catch (err) {}
+    return base;
+  }
+
+  function saveStats() {
+    try { localStorage.setItem("pearlrow.stats", JSON.stringify(stats)); } catch (err) {}
+  }
+
+  function loadSound() {
+    try {
+      var v = localStorage.getItem("pearlrow.sound");
+      if (v === "0") return false;
+      if (v === "1") return true;
+    } catch (err) {}
+    return true;
+  }
+
+  function saveSound() {
+    try { localStorage.setItem("pearlrow.sound", soundOn ? "1" : "0"); } catch (err) {}
+  }
+
+  function winText(n) {
+    if (!n) return "No wins yet";
+    if (n === 1) return "1 win";
+    return n + " wins";
+  }
+
+  function refreshRecs() {
+    easyRec.textContent = winText(stats.easy.won);
+    normalRec.textContent = winText(stats.normal.won);
+    hardRec.textContent = winText(stats.hard.won);
+  }
+
+  function copyStats() {
+    return {
+      easy: { won: stats.easy.won, lost: stats.easy.lost, drawn: stats.easy.drawn },
+      normal: { won: stats.normal.won, lost: stats.normal.lost, drawn: stats.normal.drawn },
+      hard: { won: stats.hard.won, lost: stats.hard.lost, drawn: stats.hard.drawn }
+    };
+  }
+
+  function versus() {
+    return gameMode === "easy" || gameMode === "normal" || gameMode === "hard";
+  }
+
+  function cpuToMove(side) {
+    if (gameMode === "demo") return true;
+    if (versus()) return side === "pearl";
+    return false;
+  }
+
+  function buildWindows() {
+    var r, c, k, w;
+    for (r = 0; r < 6; r++) {
+      for (c = 0; c <= 3; c++) {
+        w = [];
+        for (k = 0; k < 4; k++) w.push((c + k) * 6 + r);
+        WINDOWS.push(w);
+      }
+    }
+    for (c = 0; c < 7; c++) {
+      for (r = 0; r <= 2; r++) {
+        w = [];
+        for (k = 0; k < 4; k++) w.push(c * 6 + (r + k));
+        WINDOWS.push(w);
+      }
+    }
+    for (c = 0; c <= 3; c++) {
+      for (r = 0; r <= 2; r++) {
+        w = [];
+        for (k = 0; k < 4; k++) w.push((c + k) * 6 + (r + k));
+        WINDOWS.push(w);
+      }
+    }
+    for (c = 0; c <= 3; c++) {
+      for (r = 3; r <= 5; r++) {
+        w = [];
+        for (k = 0; k < 4; k++) w.push((c + k) * 6 + (r - k));
+        WINDOWS.push(w);
+      }
+    }
+  }
+
+  function worthOf(boardCells, side) {
+    var opp = side === 1 ? 2 : 1;
+    var s = 0;
+    var i, k, mine, other, v, w;
+    for (i = 0; i < WINDOWS.length; i++) {
+      w = WINDOWS[i];
+      mine = 0;
+      other = 0;
+      for (k = 0; k < 4; k++) {
+        v = boardCells[w[k]];
+        if (v === side) mine++;
+        else if (v === opp) other++;
+      }
+      if (other === 0 && mine > 0 && mine < 4) s += WEIGHT[mine];
+      else if (mine === 0 && other > 0 && other < 4) s -= WEIGHT[other];
+    }
+    for (var row = 0; row < 6; row++) {
+      v = boardCells[3 * 6 + row];
+      if (v === side) s += 3;
+      else if (v === opp) s -= 3;
+    }
+    return s;
+  }
+
+  function wonOn(boardCells, col, row, val) {
+    var dirs = [[1, 0], [0, 1], [1, 1], [1, -1]];
+    for (var d = 0; d < 4; d++) {
+      var dc = dirs[d][0];
+      var dr = dirs[d][1];
+      var n = 1;
+      var c = col + dc;
+      var r = row + dr;
+      while (c >= 0 && c < 7 && r >= 0 && r < 6 && boardCells[c * 6 + r] === val) {
+        n++;
+        c += dc;
+        r += dr;
+      }
+      c = col - dc;
+      r = row - dr;
+      while (c >= 0 && c < 7 && r >= 0 && r < 6 && boardCells[c * 6 + r] === val) {
+        n++;
+        c -= dc;
+        r -= dr;
+      }
+      if (n >= 4) return true;
+    }
+    return false;
+  }
+
+  function searchValue(board, depth, ply, side, alpha, beta) {
+    if (board.n === 42) return 0;
+    if (depth === 0) return worthOf(board.cells, side);
+    var opp = side === 1 ? 2 : 1;
+    var best = -2000000000;
+    for (var i = 0; i < 7; i++) {
+      var col = COL_ORDER[i];
+      var row = board.heights[col];
+      if (row >= 6) continue;
+      var idx = col * 6 + row;
+      board.cells[idx] = side;
+      board.heights[col] = row + 1;
+      board.n++;
+      var score = wonOn(board.cells, col, row, side) ? (1000000 - (ply + 1)) : -searchValue(board, depth - 1, ply + 1, opp, -beta, -alpha);
+      board.n--;
+      board.heights[col] = row;
+      board.cells[idx] = 0;
+      if (score > best) best = score;
+      if (best > alpha) alpha = best;
+      if (alpha >= beta) break;
+    }
+    return best;
+  }
+
+  function scoreColumns(board, side, depth) {
+    var opp = side === 1 ? 2 : 1;
+    var out = [null, null, null, null, null, null, null];
+    for (var col = 0; col < 7; col++) {
+      var row = board.heights[col];
+      if (row >= 6) continue;
+      var idx = col * 6 + row;
+      board.cells[idx] = side;
+      board.heights[col] = row + 1;
+      board.n++;
+      if (wonOn(board.cells, col, row, side)) out[col] = 999999;
+      else out[col] = -searchValue(board, depth - 1, 1, opp, -1e15, 1e15);
+      board.n--;
+      board.heights[col] = row;
+      board.cells[idx] = 0;
+    }
+    return out;
+  }
+
+  function boardFromMoves(list) {
+    var board = { cells: emptyCells(), heights: [0, 0, 0, 0, 0, 0, 0], n: 0 };
+    var side = 1;
+    var movesList = list || [];
+    for (var i = 0; i < movesList.length; i++) {
+      var col = movesList[i];
+      var row = board.heights[col];
+      if (row >= 6) break;
+      board.cells[col * 6 + row] = side;
+      board.heights[col] = row + 1;
+      board.n++;
+      side = side === 1 ? 2 : 1;
+    }
+    return { board: board, side: side };
+  }
+
+  function liveBoard() {
+    return { cells: cells.slice(), heights: heights.slice(), n: moves.length };
+  }
+
+  function levelName() {
+    if (gameMode === "easy") return "easy";
+    if (gameMode === "hard") return "hard";
+    return "normal";
+  }
+
+  function chooseFrom(gen, level, board, side) {
+    var depth = level === "easy" ? 2 : level === "hard" ? 7 : 4;
+    var slip = level === "easy" ? 0.4 : level === "hard" ? 0 : 0.12;
+    var sc = scoreColumns(board, side, depth);
+    var r1 = gen();
+    var r2 = gen();
+    var r3 = gen();
+    var best = -2000000000;
+    var cands = [];
+    var i, c;
+    for (i = 0; i < 7; i++) {
+      c = COL_ORDER[i];
+      if (sc[c] === null) continue;
+      if (sc[c] > best) {
+        best = sc[c];
+        cands = [c];
+      } else if (sc[c] === best) cands.push(c);
+    }
+    var choice = cands[Math.floor(r1 * cands.length)];
+    if (r2 < slip) {
+      var open = [];
+      for (c = 0; c < 7; c++) if (sc[c] !== null) open.push(c);
+      choice = open[Math.floor(r3 * open.length)];
+    }
+    return { col: choice, scores: sc };
+  }
+
+  function chooseComputerMove() {
+    var side = turn === "coral" ? 1 : 2;
+    var level = gameMode === "easy" || gameMode === "hard" ? gameMode : "normal";
+    return chooseFrom(rng, level, liveBoard(), side).col;
+  }
+
+  function scores(moveList, depth) {
+    var built = boardFromMoves(moveList);
+    return scoreColumns(built.board, built.side, depth);
+  }
+
+  function pick(level, seed, moveList) {
+    var built = boardFromMoves(moveList);
+    return chooseFrom(mulberry32(seed >>> 0), level, built.board, built.side);
+  }
+
+  function levels() {
+    return {
+      easy: { depth: 2, slip: 0.4 },
+      normal: { depth: 4, slip: 0.12 },
+      hard: { depth: 7, slip: 0 }
+    };
+  }
+
+  function layout() {
+    var W = window.innerWidth;
+    var H = window.innerHeight;
+    var s;
+    if (W >= H) s = Math.min((H - 12) / 804, (W - 124) / 752);
+    else s = Math.min((W - 12) / 752, (H - 108) / 804);
+    var width = 752 * s;
+    var height = 804 * s;
+    return {
+      W: W,
+      H: H,
+      s: s,
+      left: (W - width) / 2,
+      top: (H - height) / 2,
+      width: width,
+      height: height
+    };
+  }
+
+  function holeX(c) { return 76 + 100 * c; }
+  function holeY(r) { return 176 + 100 * (5 - r); }
+
+  function onTable() {
+    return screen === "play" || screen === "paused" || screen === "over" || (screen === "title" && gameMode === "demo");
+  }
+
+  function lipMiddle() {
+    if (screen === "title" && gameMode !== "demo") return "";
+    if (phase === "fall") return "";
+    if (phase === "win" || phase === "done") {
+      if (winner === "draw") return "Draw";
+      if (versus()) {
+        if (winner === "coral") return "You win";
+        if (winner === "pearl") return "Computer wins";
+        return "";
+      }
+      if (winner === "coral") return "Coral wins";
+      if (winner === "pearl") return "Pearl wins";
+      return "";
+    }
+    if (phase === "aim" || phase === "think") {
+      if (versus()) {
+        if (phase === "think") return "Thinking";
+        return "Your turn";
+      }
+      if (gameMode === "demo" && phase === "think") return "Thinking";
+      if (turn === "pearl") return "Pearl's turn";
+      return "Coral's turn";
+    }
+    return "";
+  }
+
+  function winningLines(col, row, val) {
+    var dirs = [[1, 0], [0, 1], [1, 1], [1, -1]];
+    var out = [];
+    for (var d = 0; d < 4; d++) {
+      var dc = dirs[d][0];
+      var dr = dirs[d][1];
+      var c = col;
+      var r = row;
+      while (true) {
+        var nc = c - dc;
+        var nr = r - dr;
+        if (nc < 0 || nc > 6 || nr < 0 || nr > 5) break;
+        if (cells[nc * 6 + nr] !== val) break;
+        c = nc;
+        r = nr;
+      }
+      var line = [];
+      while (c >= 0 && c <= 6 && r >= 0 && r <= 5 && cells[c * 6 + r] === val) {
+        line.push(c * 6 + r);
+        c += dc;
+        r += dr;
+      }
+      if (line.length >= 4) out.push(line);
+    }
+    return out;
+  }
+
+  function discCount(val) {
+    var n = 0;
+    for (var i = 0; i < 42; i++) if (cells[i] === val) n++;
+    return n;
+  }
+
+  function writeNextLine() {
+    if (versus()) {
+      overNext.textContent = firstPlayer === "coral" ? "Next game: the computer moves first" : "Next game: you move first";
+    } else if (gameMode === "duo") {
+      overNext.textContent = firstPlayer === "coral" ? "Next game: Pearl moves first" : "Next game: Coral moves first";
+    }
+  }
+
+  function writeStar() {
+    if (firstStar && versus()) {
+      if (gameMode === "easy") overStar.textContent = "Your first win on Easy!";
+      else if (gameMode === "normal") overStar.textContent = "Your first win on Normal!";
+      else overStar.textContent = "Your first win on Hard!";
+      overStar.style.display = "block";
+    } else {
+      overStar.style.display = "none";
+    }
+  }
+
+  function fillOver() {
+    if (versus()) {
+      if (winner === "coral") overTitle.textContent = "You win!";
+      else if (winner === "pearl") overTitle.textContent = "Computer wins";
+      else overTitle.textContent = "Draw";
+    } else if (winner === "coral") overTitle.textContent = "Coral wins!";
+    else if (winner === "pearl") overTitle.textContent = "Pearl wins!";
+    else overTitle.textContent = "Draw";
+    if (winner === "draw") overNote.textContent = "The board is full";
+    else {
+      var n = discCount(winner === "coral" ? 1 : 2);
+      overNote.textContent = "Four in a row in " + n + " moves";
+    }
+    if (setPosition) overRec.textContent = "Set position: not counted";
+    else if (gameMode === "easy") overRec.textContent = "Easy: won " + stats.easy.won + " · lost " + stats.easy.lost + " · drawn " + stats.easy.drawn;
+    else if (gameMode === "normal") overRec.textContent = "Normal: won " + stats.normal.won + " · lost " + stats.normal.lost + " · drawn " + stats.normal.drawn;
+    else if (gameMode === "hard") overRec.textContent = "Hard: won " + stats.hard.won + " · lost " + stats.hard.lost + " · drawn " + stats.hard.drawn;
+    else overRec.textContent = "Coral " + duo[0] + " – " + duo[1] + " Pearl";
+    writeNextLine();
+    writeStar();
+  }
+
+  function syncChrome() {
+    titleEl.style.display = screen === "title" ? "flex" : "none";
+    pausedEl.style.display = screen === "paused" ? "flex" : "none";
+    overEl.style.display = screen === "over" ? "flex" : "none";
+    pauseBtn.style.display = screen === "play" ? "flex" : "none";
+    if (screen === "paused") {
+      if (gameMode === "easy") pausedSub.textContent = "Easy computer";
+      else if (gameMode === "normal") pausedSub.textContent = "Normal computer";
+      else if (gameMode === "hard") pausedSub.textContent = "Hard computer";
+      else pausedSub.textContent = "Two players · Coral " + duo[0] + " – " + duo[1] + " Pearl";
+    }
+    if (screen === "over") fillOver();
+    applyGameGain();
+  }
+
+  function applySetupMoves(list) {
+    var placed = 0;
+    for (var i = 0; i < list.length; i++) {
+      var column = list[i];
+      if (!Number.isInteger(column) || column < 0 || column > 6) break;
+      var row = heights[column];
+      if (row >= 6) break;
+      var who = turn;
+      var val = who === "coral" ? 1 : 2;
+      var idx = column * 6 + row;
+      cells[idx] = val;
+      var found = winningLines(column, row, val);
+      if (found.length > 0 || moves.length + 1 === 42) {
+        cells[idx] = 0;
+        break;
+      }
+      heights[column] = row + 1;
+      moves.push(column);
+      lastFrom[who] = column;
+      turn = who === "coral" ? "pearl" : "coral";
+      placed++;
+    }
+    return placed;
+  }
+
+  function freshBoard() {
+    cells = emptyCells();
+    heights = [0, 0, 0, 0, 0, 0, 0];
+    moves = [];
+    winner = null;
+    winLines = [];
+    fallK = 0;
+    fallN = 0;
+    landIndex = -1;
+    landTick = -100;
+    lastFrom = { coral: 3, pearl: 3 };
+    effects = [];
+    shakeUntil = -1;
+    thinkLeft = 0;
+  }
+
+  function makeCallout() {
+    var second = "Two players";
+    if (setPosition) second = "Set position: not counted";
+    else if (gameMode === "easy") second = "Easy computer";
+    else if (gameMode === "normal" || gameMode === "demo") second = "Normal computer";
+    else if (gameMode === "hard") second = "Hard computer";
+    var first;
+    if (setPosition) {
+      if (versus()) first = turn === "pearl" ? "Computer moves next" : "You move next";
+      else first = turn === "pearl" ? "Pearl moves next" : "Coral moves next";
+    } else if (versus()) {
+      first = firstPlayer === "pearl" ? "Computer moves first" : "You move first";
+    } else {
+      first = firstPlayer === "pearl" ? "Pearl moves first" : "Coral moves first";
+    }
+    callout = { first: first, second: second };
+  }
+
+  function beginThink(chooseNow) {
+    thinkFrom = lastFrom[turn];
+    thinkLeft = 66;
+    phase = "think";
+    if (chooseNow) {
+      thinkCol = chooseComputerMove();
+      thinkReady = true;
+    } else {
+      thinkReady = false;
+    }
+  }
+
+  function beginGame(nextMode, options) {
+    options = options || {};
+    gameMode = nextMode || "duo";
+    if (options.seed !== undefined && options.seed !== null && options.seed !== "") {
+      var n = Number(options.seed);
+      if (Number.isFinite(n) && n >= 0 && n <= 4294967295) gameSeed = n >>> 0;
+      else gameSeed = Math.floor(Math.random() * 4294967296) >>> 0;
+    } else {
+      gameSeed = Math.floor(Math.random() * 4294967296) >>> 0;
+    }
+    rng = mulberry32(gameSeed);
+    if (options.first === "pearl" || options.first === "computer") firstPlayer = "pearl";
+    else firstPlayer = "coral";
+    turn = firstPlayer;
+    freshBoard();
+    tick = 0;
+    aim = 3;
+    phase = "aim";
+    setPosition = false;
+    calloutFading = false;
+    calloutFade = 0;
+    downId = null;
+    downAim = false;
+    acc = 0;
+    firstStar = false;
+    var placed = 0;
+    if (Array.isArray(options.moves)) placed = applySetupMoves(options.moves);
+    setPosition = placed > 0;
+    counted = versus() && !setPosition;
+    makeCallout();
+    writeNextLine();
+    writeStar();
+    if (cpuToMove(turn)) beginThink(false);
+    else phase = "aim";
+  }
+
+  function start(nextMode, options) {
+    beginGame(nextMode || "duo", options || {});
+    screen = "play";
+    syncChrome();
+    playStartNotes();
+  }
+
+  function beginDemo() {
+    var seed = Math.floor(Math.random() * 4294967296) >>> 0;
+    var first = Math.random() < 0.5 ? "coral" : "pearl";
+    beginGame("demo", { seed: seed, first: first });
+    screen = "title";
+    syncChrome();
+  }
+
+  function title() {
+    duo[0] = 0;
+    duo[1] = 0;
+    beginDemo();
+  }
+
+  function pause() {
+    if (screen !== "play") return;
+    screen = "paused";
+    downId = null;
+    downAim = false;
+    syncChrome();
+  }
+
+  function resume() {
+    if (screen !== "paused") return;
+    screen = "play";
+    syncChrome();
+  }
+
+  function rematch() {
+    var nextFirst = firstPlayer === "coral" ? "pearl" : "coral";
+    start(gameMode, { seed: (gameSeed + 1) >>> 0, first: nextFirst });
+  }
+
+  function restart() {
+    start(gameMode, { seed: (gameSeed + 1) >>> 0, first: firstPlayer });
+  }
+
+  function aimAt(column) {
+    if (!Number.isInteger(column) || column < 0 || column > 6) return;
+    if (column === aim) return;
+    aim = column;
+    if (screen === "play" && phase === "aim") playTick();
+  }
+
+  function dropDisc(column) {
+    var row = heights[column];
+    var who = turn;
+    var val = who === "coral" ? 1 : 2;
+    cells[column * 6 + row] = val;
+    heights[column] = row + 1;
+    moves.push(column);
+    lastFrom[who] = column;
+    turn = who === "coral" ? "pearl" : "coral";
+    fallingSide = who;
+    fallingCol = column;
+    fallingRow = row;
+    fallK = 0;
+    fallN = 14 + 6 * (6 - row);
+    phase = "fall";
+    if (callout && !calloutFading) calloutFading = true;
+  }
+
+  function play(column) {
+    if (screen !== "play") return false;
+    if (phase !== "aim") return false;
+    if (!Number.isInteger(column) || column < 0 || column > 6) return false;
+    if (heights[column] >= 6) return false;
+    dropDisc(column);
+    return true;
+  }
+
+  function humanDrop(column) {
+    if (screen === "play" && phase === "aim" && Number.isInteger(column) && column >= 0 && column <= 6 && heights[column] >= 6) {
+      shakeUntil = tick + 36;
+      playThuds();
+    }
+    return play(column);
+  }
+
+  function tickCallout() {
+    if (!callout) return;
+    if (!calloutFading && tick >= 168) calloutFading = true;
+    if (!calloutFading) return;
+    calloutFade += 1;
+    if (calloutFade >= 30) callout = null;
+  }
+
+  function noteRecord(kind) {
+    if (!(versus() && counted)) {
+      firstStar = false;
+      writeStar();
+      return;
+    }
+    var rec = stats[gameMode];
+    var before = rec.won;
+    if (kind === "win") rec.won += 1;
+    else if (kind === "loss") rec.lost += 1;
+    else rec.drawn += 1;
+    firstStar = kind === "win" && before === 0;
+    saveStats();
+    refreshRecs();
+    writeStar();
+  }
+
+  function spawnRing() {
+    effects.push({ kind: "ring", c: fallingCol, r: fallingRow, born: tick, life: 54 });
+  }
+
+  function spawnBubbles() {
+    var seen = {};
+    for (var i = 0; i < winLines.length; i++) {
+      var line = winLines[i];
+      for (var j = 0; j < line.length; j++) {
+        var idx = line[j];
+        if (seen[idx]) continue;
+        seen[idx] = true;
+        var c = Math.floor(idx / 6);
+        var r = idx % 6;
+        for (var b = 0; b < 6; b++) {
+          effects.push({
+            kind: "bubble",
+            c: c,
+            r: r,
+            born: tick,
+            life: 192,
+            ox: (Math.random() - 0.5) * 36,
+            delay: Math.random() * 50,
+            rise: 36 + Math.random() * 54,
+            size: 2 + Math.random() * 3.2
+          });
+        }
+      }
+    }
+  }
+
+  function pruneEffects() {
+    var keep = [];
+    for (var i = 0; i < effects.length; i++) {
+      if (tick - effects[i].born < effects[i].life) keep.push(effects[i]);
+    }
+    effects = keep;
+  }
+
+  function finishFall() {
+    var val = fallingSide === "coral" ? 1 : 2;
+    var found = winningLines(fallingCol, fallingRow, val);
+    landIndex = fallingCol * 6 + fallingRow;
+    landTick = tick;
+    playLand(fallingSide, fallingRow);
+    spawnRing();
+    if (found.length) {
+      winner = fallingSide;
+      winLines = found;
+      phase = "win";
+      winWait = 144;
+      if (!setPosition && gameMode === "duo") {
+        if (winner === "coral") duo[0] += 1;
+        else duo[1] += 1;
+      }
+      if (versus()) noteRecord(winner === "coral" ? "win" : "loss");
+      else noteRecord("skip");
+      spawnBubbles();
+      playFanfare(winner === "coral" ? "win" : "loss");
+    } else if (moves.length === 42) {
+      winner = "draw";
+      winLines = [];
+      phase = "win";
+      winWait = 108;
+      if (versus()) noteRecord("draw");
+      else noteRecord("skip");
+      playFanfare("draw");
+    } else {
+      winner = null;
+      winLines = [];
+      if (cpuToMove(turn)) beginThink(true);
+      else phase = "aim";
+    }
+  }
+
+  function doStep() {
+    if (screen !== "play" && !(screen === "title" && gameMode === "demo")) return;
+    tick += 1;
+    if (phase === "fall") {
+      fallK += 1;
+      if (fallK >= fallN) finishFall();
+    } else if (phase === "think") {
+      if (!thinkReady) {
+        thinkCol = chooseComputerMove();
+        thinkReady = true;
+      }
+      thinkLeft -= 1;
+      if (thinkLeft <= 0) dropDisc(thinkCol);
+    } else if (phase === "win") {
+      winWait -= 1;
+      if (winWait <= 0) {
+        if (gameMode === "demo") {
+          phase = "done";
+          demoGap = 150;
+        } else {
+          screen = "over";
+          phase = "done";
+          syncChrome();
+        }
+      }
+    } else if (phase === "done" && gameMode === "demo") {
+      demoGap -= 1;
+      if (demoGap <= 0) beginDemo();
+    }
+    if (screen === "play" || (screen === "title" && gameMode === "demo")) tickCallout();
+    pruneEffects();
+  }
+
+  function advance(seconds) {
+    if (screen !== "play" && screen !== "title") return;
+    var n = Math.round(seconds * 120);
+    for (var i = 0; i < n; i++) {
+      if (screen !== "play" && screen !== "title") return;
+      doStep();
+    }
+  }
+
+  function colAt(x, y) {
+    var L = layout();
+    if (!(L.s > 0)) return -1;
+    var u = (x - L.left) / L.s - 26;
+    var above = (L.top - y) / L.s;
+    var below = (y - (L.top + L.height)) / L.s;
+    if (u < -50 || u > 750 || above > 50 || below > 50) return -1;
+    var col = Math.floor(u / 100);
+    if (col < 0) col = 0;
+    if (col > 6) col = 6;
+    return col;
+  }
+
+  function screenOf(column, row) {
+    var L = layout();
+    return {
+      x: L.left + (76 + 100 * column) * L.s,
+      y: L.top + (176 + 100 * (5 - row)) * L.s
+    };
+  }
+
+  function state() {
+    var L = layout();
+    var outLines = [];
+    for (var i = 0; i < winLines.length; i++) outLines.push(winLines[i].slice());
+    return {
+      screen: screen,
+      mode: gameMode,
+      first: firstPlayer,
+      turn: turn,
+      phase: phase,
+      tick: tick,
+      moves: moves.slice(),
+      cells: cells.slice(),
+      aim: aim,
+      winner: winner,
+      lines: outLines,
+      duo: [duo[0], duo[1]],
+      lip: lipMiddle(),
+      callout: callout ? { first: callout.first, second: callout.second } : null,
+      cellPx: 100 * L.s,
+      box: { left: L.left, top: L.top, width: L.width, height: L.height },
+      seed: gameSeed,
+      counted: counted,
+      stats: copyStats(),
+      sound: soundOn
+    };
+  }
+
+  function onKey(e) {
+    if (e.repeat) return;
+    ensureAudio();
+    var k = e.key;
+    if (k === "m" || k === "M") {
+      sound(!soundOn);
+      return;
+    }
+    var tag = e.target && e.target.tagName;
+    if (tag === "BUTTON" || tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") {
+      if (k === "Enter" || k === " ") return;
+      return;
+    }
+    if (k === "p" || k === "P" || k === "Escape") {
+      if (screen === "play") pause();
+      else if (screen === "paused") resume();
+      return;
+    }
+    if (k === "Enter" && screen === "paused") {
+      if (e.preventDefault) e.preventDefault();
+      resume();
+      return;
+    }
+    if (k === "Enter" && screen === "over") {
+      if (e.preventDefault) e.preventDefault();
+      rematch();
+      return;
+    }
+    if (screen !== "play" || phase !== "aim") return;
+    if (k === "ArrowLeft" || k === "a" || k === "A") {
+      if (e.preventDefault) e.preventDefault();
+      aimAt(aim - 1);
+      return;
+    }
+    if (k === "ArrowRight" || k === "d" || k === "D") {
+      if (e.preventDefault) e.preventDefault();
+      aimAt(aim + 1);
+      return;
+    }
+    if (k === " " || k === "Enter" || k === "ArrowDown" || k === "s" || k === "S") {
+      if (e.preventDefault) e.preventDefault();
+      humanDrop(aim);
+      return;
+    }
+    if (k.length === 1 && k >= "1" && k <= "7") {
+      humanDrop(k.charCodeAt(0) - 49);
+    }
+  }
+
+  function endPointer(e, drop) {
+    if (e.pointerId !== downId) return;
+    var was = downAim;
+    downId = null;
+    downAim = false;
+    if (!drop || !was) return;
+    if (screen !== "play" || phase !== "aim") return;
+    var col = colAt(e.clientX, e.clientY);
+    if (col >= 0) humanDrop(col);
+  }
+
+  canvas.addEventListener("pointerdown", function (e) {
+    ensureAudio();
+    downId = e.pointerId;
+    downAim = screen === "play" && phase === "aim";
+    if (canvas.setPointerCapture) {
+      try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* already released */ }
+    }
+    if (!downAim) return;
+    var col = colAt(e.clientX, e.clientY);
+    if (col >= 0) aimAt(col);
+  });
+
+  canvas.addEventListener("pointermove", function (e) {
+    if (screen !== "play" || phase !== "aim") return;
+    var col = colAt(e.clientX, e.clientY);
+    if (col < 0) return;
+    if (e.pointerType === "mouse" && downId === null) {
+      aimAt(col);
+      return;
+    }
+    if (downId !== null && downAim && e.pointerId === downId) aimAt(col);
+  });
+
+  canvas.addEventListener("pointerup", function (e) { endPointer(e, true); });
+  canvas.addEventListener("pointercancel", function (e) { endPointer(e, false); });
+
+  document.addEventListener("pointerdown", function () { ensureAudio(); });
+  document.addEventListener("keydown", onKey);
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden && screen === "play") pause();
+  });
+
+  function onTap(btn, fn, card) {
+    btn.addEventListener("click", function () {
+      btn.blur();
+      ensureAudio();
+      if (card) playClick();
+      fn();
+    });
+  }
+
+  onTap(easyBtn, function () { start("easy"); }, true);
+  onTap(normalBtn, function () { start("normal"); }, true);
+  onTap(hardBtn, function () { start("hard"); }, true);
+  onTap(duoBtn, function () { start("duo"); }, true);
+  onTap(pauseBtn, pause, false);
+  onTap(resumeBtn, resume, true);
+  onTap(restartBtn, restart, true);
+  onTap(menuBtn, title, true);
+  onTap(rematchBtn, rematch, true);
+  onTap(overMenuBtn, title, true);
+  soundTitle.addEventListener("change", function () {
+    soundTitle.blur();
+    sound(soundTitle.checked);
+  });
+  soundPaused.addEventListener("change", function () {
+    soundPaused.blur();
+    sound(soundPaused.checked);
+  });
+
+  function traceRoundRect(c, x, y, w, h, r) {
+    c.moveTo(x + r, y);
+    c.lineTo(x + w - r, y);
+    c.arc(x + w - r, y + r, r, -Math.PI / 2, 0);
+    c.lineTo(x + w, y + h - r);
+    c.arc(x + w - r, y + h - r, r, 0, Math.PI / 2);
+    c.lineTo(x + r, y + h);
+    c.arc(x + r, y + h - r, r, Math.PI / 2, Math.PI);
+    c.lineTo(x, y + r);
+    c.arc(x + r, y + r, r, Math.PI, Math.PI * 3 / 2);
+    c.closePath();
+  }
+
+  function drawPageAndGlow(c, L) {
+    var sand = c.createLinearGradient(0, 0, 0, L.H);
+    sand.addColorStop(0, "#f7e9cb");
+    sand.addColorStop(1, "#ecd0a0");
+    c.fillStyle = sand;
+    c.fillRect(0, 0, L.W, L.H);
+    var cx = L.left + L.width / 2;
+    var cy = L.top + L.height / 2;
+    var rad = Math.max(L.width, L.height) * 0.78;
+    var glow = c.createRadialGradient(cx, cy, rad * 0.02, cx, cy, rad);
+    glow.addColorStop(0, "rgba(23, 133, 122, 0.26)");
+    glow.addColorStop(0.42, "rgba(23, 133, 122, 0.12)");
+    glow.addColorStop(0.75, "rgba(23, 133, 122, 0.04)");
+    glow.addColorStop(1, "rgba(23, 133, 122, 0)");
+    c.fillStyle = glow;
+    c.fillRect(0, 0, L.W, L.H);
+  }
+
+  function drawWater(c) {
+    var g = c.createLinearGradient(0, 136, 0, 716);
+    g.addColorStop(0, "#0b4a50");
+    g.addColorStop(1, "#062c30");
+    c.fillStyle = g;
+    c.fillRect(30, 130, 692, 590);
+  }
+
+  function drawDisc(c, x, y, radius, side) {
+    c.save();
+    c.shadowColor = "rgba(0, 0, 0, 0.28)";
+    c.shadowBlur = radius * 0.18;
+    c.shadowOffsetY = radius * 0.1;
+    c.beginPath();
+    c.arc(x, y, radius, 0, 2 * Math.PI);
+    if (side === "coral") {
+      var cg = c.createRadialGradient(x - radius * 0.36, y - radius * 0.38, radius * 0.08, x, y, radius);
+      cg.addColorStop(0, "#ffd2c6");
+      cg.addColorStop(0.42, "#ff7a68");
+      cg.addColorStop(1, "#d24b3c");
+      c.fillStyle = cg;
+      c.fill();
+      c.shadowColor = "transparent";
+      c.beginPath();
+      c.arc(x, y, radius * 0.62, 0, 2 * Math.PI);
+      c.strokeStyle = "rgba(140, 42, 36, 0.72)";
+      c.lineWidth = Math.max(1.5, radius * 0.085);
+      c.stroke();
+    } else {
+      var pg = c.createRadialGradient(x - radius * 0.38, y - radius * 0.4, radius * 0.05, x, y, radius);
+      pg.addColorStop(0, "#ffffff");
+      pg.addColorStop(0.38, "#f6efe2");
+      pg.addColorStop(1, "#b9b2a6");
+      c.fillStyle = pg;
+      c.fill();
+      c.shadowColor = "transparent";
+      c.save();
+      c.translate(x - radius * 0.28, y - radius * 0.32);
+      c.rotate(-0.7);
+      c.scale(1, 0.62);
+      c.beginPath();
+      c.arc(0, 0, radius * 0.2, 0, 2 * Math.PI);
+      c.fillStyle = "rgba(255, 255, 255, 0.92)";
+      c.fill();
+      c.restore();
+    }
+    c.restore();
+  }
+
+  function bounceOf(idx) {
+    if (idx !== landIndex) return 0;
+    var age = tick - landTick;
+    if (age < 0 || age > 18) return 0;
+    var k = age / 18;
+    return -Math.sin(k * Math.PI) * (1 - k) * 8;
+  }
+
+  function drawDiscs(c) {
+    for (var col = 0; col < 7; col++) {
+      for (var row = 0; row < 6; row++) {
+        var idx = col * 6 + row;
+        var v = cells[idx];
+        if (!v) continue;
+        if (phase === "fall" && col === fallingCol && row === fallingRow) continue;
+        var side = v === 1 ? "coral" : "pearl";
+        drawDisc(c, holeX(col), holeY(row) + bounceOf(idx), 44, side);
+      }
+    }
+    if (phase === "fall") {
+      var t = fallK / fallN;
+      var y = 50 + (holeY(fallingRow) - 50) * t * t;
+      drawDisc(c, holeX(fallingCol), y, 44, fallingSide);
+    }
+  }
+
+  function drawFrame(c) {
+    c.beginPath();
+    traceRoundRect(c, 0, 100, 752, 704, 34);
+    for (var r = 0; r < 6; r++) {
+      for (var col = 0; col < 7; col++) {
+        var cx = holeX(col);
+        var cy = holeY(r);
+        c.moveTo(cx + 40, cy);
+        c.arc(cx, cy, 40, 0, 2 * Math.PI);
+      }
+    }
+    var g = c.createLinearGradient(0, 100, 0, 804);
+    g.addColorStop(0, "#17857a");
+    g.addColorStop(1, "#0d5c55");
+    c.save();
+    c.shadowColor = "rgba(8, 40, 36, 0.38)";
+    c.shadowBlur = 26;
+    c.shadowOffsetY = 14;
+    c.fillStyle = g;
+    c.fill("evenodd");
+    c.restore();
+    c.strokeStyle = "rgba(255, 255, 255, 0.32)";
+    c.lineWidth = 2.5;
+    c.stroke();
+  }
+
+  function drawWin(c) {
+    if (!winLines.length) return;
+    c.save();
+    c.setLineDash([]);
+    c.strokeStyle = "rgba(255, 244, 220, 0.92)";
+    c.lineWidth = 12;
+    c.lineCap = "round";
+    for (var i = 0; i < winLines.length; i++) {
+      var ln = winLines[i];
+      var a = ln[0];
+      var b = ln[ln.length - 1];
+      c.beginPath();
+      c.moveTo(holeX(Math.floor(a / 6)), holeY(a % 6));
+      c.lineTo(holeX(Math.floor(b / 6)), holeY(b % 6));
+      c.stroke();
+    }
+    var pulse = 0.5 + 0.5 * Math.sin(tick * 0.16);
+    c.strokeStyle = "rgba(255, 246, 226, " + (0.45 + 0.5 * pulse) + ")";
+    c.lineWidth = 4;
+    var seen = {};
+    for (var j = 0; j < winLines.length; j++) {
+      var line = winLines[j];
+      for (var k = 0; k < line.length; k++) {
+        var idx = line[k];
+        if (seen[idx]) continue;
+        seen[idx] = true;
+        c.beginPath();
+        c.arc(holeX(Math.floor(idx / 6)), holeY(idx % 6), 44 + pulse * 5, 0, 2 * Math.PI);
+        c.stroke();
+      }
+    }
+    c.restore();
+  }
+
+  function drawLandingRing(c) {
+    if (!onTable() || phase !== "aim") return;
+    var row = heights[aim];
+    if (row >= 6) return;
+    c.save();
+    c.beginPath();
+    c.arc(holeX(aim), holeY(row), 27, 0, 2 * Math.PI);
+    c.strokeStyle = turn === "coral" ? "#ff7a68" : "#f6efe2";
+    c.lineWidth = 3;
+    c.setLineDash([9, 7]);
+    c.stroke();
+    c.restore();
+  }
+
+  function drawLaneDisc(c) {
+    if (!onTable()) return;
+    if (phase !== "aim" && phase !== "think") return;
+    var y = 50 + Math.sin(tick * 0.085) * 3.5;
+    var x = holeX(aim);
+    if (phase === "think") {
+      var p = (66 - thinkLeft) / 66;
+      if (p < 0) p = 0;
+      if (p > 1) p = 1;
+      x = holeX(thinkFrom) + (holeX(thinkCol) - holeX(thinkFrom)) * p;
+    }
+    var ox = 0;
+    if (phase === "aim" && tick < shakeUntil) {
+      var age = shakeUntil - tick;
+      ox = Math.sin(age * 1.8) * (age / 36) * 7;
+    }
+    drawDisc(c, x + ox, y, 44, turn);
+    if (phase === "think") {
+      var pulse = 0.5 + 0.5 * Math.sin(tick * 0.28);
+      c.fillStyle = "rgba(255, 250, 240, " + (0.45 + 0.5 * pulse) + ")";
+      for (var i = -1; i <= 1; i++) {
+        c.beginPath();
+        c.arc(x + i * 16, y - 52, 3.2 + pulse * 2.2, 0, 2 * Math.PI);
+        c.fill();
+      }
+    }
+  }
+
+  function drawLip(c) {
+    if (!onTable()) return;
+    drawDisc(c, 46, 765, 21, "coral");
+    drawDisc(c, 706, 765, 21, "pearl");
+    if (phase === "aim" || phase === "think" || phase === "fall") {
+      var x = turn === "coral" ? 46 : 706;
+      c.beginPath();
+      c.arc(x, 765, 27, 0, 2 * Math.PI);
+      c.strokeStyle = "rgba(244, 255, 248, 0.92)";
+      c.lineWidth = 3;
+      c.setLineDash([]);
+      c.stroke();
+    }
+    var s = layout().s;
+    var size = Math.max(30, 11 / (s > 0 ? s : 1));
+    c.font = "700 " + size + "px " + FONT;
+    c.textBaseline = "middle";
+    c.fillStyle = "#f4fff8";
+    c.textAlign = "left";
+    if (gameMode === "duo") c.fillText(String(duo[0]), 82, 765);
+    else if (versus()) c.fillText("You", 82, 765);
+    c.textAlign = "right";
+    if (gameMode === "duo") c.fillText(String(duo[1]), 670, 765);
+    else if (gameMode === "easy") c.fillText("Easy", 670, 765);
+    else if (gameMode === "normal") c.fillText("Normal", 670, 765);
+    else if (gameMode === "hard") c.fillText("Hard", 670, 765);
+    var mid = lipMiddle();
+    if (mid) {
+      c.textAlign = "center";
+      c.fillText(mid, 376, 765);
+    }
+  }
+
+  function drawEffects(c) {
+    var i, e, age, k, alpha;
+    for (i = 0; i < effects.length; i++) {
+      e = effects[i];
+      age = tick - e.born;
+      if (age < 0 || age >= e.life) continue;
+      if (e.kind === "ring") {
+        k = age / e.life;
+        alpha = 0.75 * (1 - k);
+        c.beginPath();
+        c.arc(holeX(e.c), holeY(e.r), 34 + k * 46, 0, 2 * Math.PI);
+        c.strokeStyle = "rgba(255, 246, 226, " + alpha + ")";
+        c.lineWidth = 4;
+        c.stroke();
+      } else if (e.kind === "bubble") {
+        if (age < e.delay) continue;
+        k = (age - e.delay) / (e.life - e.delay);
+        if (k < 0) k = 0;
+        if (k > 1) k = 1;
+        alpha = 0.55 * (1 - k);
+        c.beginPath();
+        c.arc(holeX(e.c) + e.ox, holeY(e.r) - k * e.rise, e.size * (1 - k * 0.3), 0, 2 * Math.PI);
+        c.fillStyle = "rgba(255, 252, 245, " + alpha + ")";
+        c.fill();
+      }
+    }
+  }
+
+  function drawCalloutPanel(c) {
+    if (!callout || !onTable()) return;
+    var alpha = calloutFading ? Math.max(0, 1 - calloutFade / 30) : 1;
+    if (alpha <= 0) return;
+    c.save();
+    c.globalAlpha = alpha;
+    var w = 460;
+    var h = 122;
+    var x = 376 - w / 2;
+    var y = 426 - h / 2;
+    c.beginPath();
+    traceRoundRect(c, x, y, w, h, 22);
+    c.shadowColor = "rgba(20, 40, 30, 0.18)";
+    c.shadowBlur = 18;
+    c.shadowOffsetY = 8;
+    c.fillStyle = "#fffaf0";
+    c.fill();
+    c.shadowColor = "transparent";
+    c.fillStyle = "#1c3d38";
+    c.textAlign = "center";
+    c.textBaseline = "middle";
+    c.font = "700 30px " + FONT;
+    c.fillText(callout.first, 376, y + 46);
+    c.fillStyle = "#3e5c56";
+    c.font = "600 18px " + FONT;
+    c.fillText(callout.second, 376, y + 84);
+    c.restore();
+  }
+
+  function draw() {
+    if (!ctx) return;
+    var L = layout();
+    var dpr = Math.min(2, window.devicePixelRatio || 1);
+    var bw = Math.max(1, Math.round(L.W * dpr));
+    var bh = Math.max(1, Math.round(L.H * dpr));
+    if (canvas.width !== bw || canvas.height !== bh) {
+      canvas.width = bw;
+      canvas.height = bh;
+    }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    drawPageAndGlow(ctx, L);
+    if (!(L.s > 0)) return;
+    ctx.save();
+    ctx.translate(L.left, L.top);
+    ctx.scale(L.s, L.s);
+    drawWater(ctx);
+    drawDiscs(ctx);
+    drawFrame(ctx);
+    drawWin(ctx);
+    drawLandingRing(ctx);
+    drawLaneDisc(ctx);
+    drawLip(ctx);
+    drawEffects(ctx);
+    drawCalloutPanel(ctx);
+    ctx.restore();
+  }
+
+  function frame(now) {
+    if (!lastStamp) {
+      lastStamp = now;
+      sampleWave();
+      draw();
+      window.requestAnimationFrame(frame);
+      return;
+    }
+    var dt = (now - lastStamp) / 1000;
+    lastStamp = now;
+    if (dt > 0.05) dt = 0.05;
+    if (dt < 0) dt = 0;
+    if (screen === "play" || screen === "title") {
+      acc += dt;
+      var steps = 0;
+      while (acc >= 1 / 120 && steps < 12) {
+        if (screen !== "play" && screen !== "title") break;
+        acc -= 1 / 120;
+        steps += 1;
+        doStep();
+      }
+    }
+    sampleWave();
+    draw();
+    window.requestAnimationFrame(frame);
+  }
+
+  function syncSoundBoxes() {
+    soundTitle.checked = soundOn;
+    soundPaused.checked = soundOn;
+  }
+
+  function sound(on) {
+    if (on === true || on === false) {
+      var was = soundOn;
+      soundOn = on;
+      saveSound();
+      syncSoundBoxes();
+      if (!soundOn && was) hushClicks();
+      applyGameGain();
+    }
+    return soundOn;
+  }
+
+  function applyGameGain() {
+    if (!gameGain || !audioCtx) return;
+    var now = audioCtx.currentTime;
+    var target = (screen === "play" && soundOn) ? 1 : 0;
+    gameGain.gain.cancelScheduledValues(now);
+    gameGain.gain.setValueAtTime(gameGain.gain.value, now);
+    gameGain.gain.linearRampToValueAtTime(target, now + 0.01);
+  }
+
+  function ensureAudio() {
+    if (audioCtx) {
+      try { if (audioCtx.state === "suspended") audioCtx.resume(); } catch (err) {}
+      return;
+    }
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    try { audioCtx = new AC(); } catch (err) { return; }
+    gameGain = audioCtx.createGain();
+    gameGain.gain.value = (screen === "play" && soundOn) ? 1 : 0;
+    compressor = audioCtx.createDynamicsCompressor();
+    compressor.threshold.value = -12;
+    compressor.knee.value = 6;
+    compressor.ratio.value = 12;
+    compressor.attack.value = 0.003;
+    compressor.release.value = 0.15;
+    masterGain = audioCtx.createGain();
+    masterGain.gain.value = 0.6;
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 8192;
+    waveBuf = new Float32Array(8192);
+    gameGain.connect(compressor);
+    compressor.connect(masterGain);
+    masterGain.connect(analyser);
+    analyser.connect(audioCtx.destination);
+    try { if (audioCtx.state === "suspended") audioCtx.resume(); } catch (err2) {}
+  }
+
+  function sampleWave() {
+    if (!analyser || !waveBuf) return;
+    try {
+      analyser.getFloatTimeDomainData(waveBuf);
+      for (var i = 0; i < waveBuf.length; i++) {
+        var a = waveBuf[i] < 0 ? -waveBuf[i] : waveBuf[i];
+        if (a > audioPeakAbs) audioPeakAbs = a;
+      }
+    } catch (err) {}
+  }
+
+  function audioPeak() {
+    sampleWave();
+    var db = -120;
+    if (audioPeakAbs > 0) db = 20 * Math.log10(audioPeakAbs);
+    audioPeakAbs = 0;
+    return db;
+  }
+
+  var liveClicks = [];
+
+  function hushClicks() {
+    if (!audioCtx) return;
+    var now = audioCtx.currentTime;
+    for (var i = 0; i < liveClicks.length; i++) {
+      try {
+        liveClicks[i].gain.cancelScheduledValues(now);
+        liveClicks[i].gain.setValueAtTime(liveClicks[i].gain.value, now);
+        liveClicks[i].gain.linearRampToValueAtTime(0.0001, now + 0.01);
+      } catch (err) {}
+    }
+    liveClicks = [];
+  }
+
+  function noiseBuffer() {
+    if (noiseBuf) return noiseBuf;
+    var len = Math.floor(audioCtx.sampleRate * 0.08);
+    noiseBuf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+    var data = noiseBuf.getChannelData(0);
+    var x = 123456789;
+    for (var i = 0; i < len; i++) {
+      x = (Math.imul(x, 1103515245) + 12345) >>> 0;
+      data[i] = (x / 4294967296) * 2 - 1;
+    }
+    return noiseBuf;
+  }
+
+  function tone(type, f0, f1, peak, dur, delay, dest) {
+    if (!audioCtx || !dest) return null;
+    var now = audioCtx.currentTime + (delay || 0);
+    var osc = audioCtx.createOscillator();
+    osc.type = type;
+    osc.frequency.setValueAtTime(Math.max(1, f0), now);
+    if (f1 !== f0) osc.frequency.exponentialRampToValueAtTime(Math.max(1, f1), now + dur);
+    var g = audioCtx.createGain();
+    g.gain.setValueAtTime(peak, now);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+    osc.connect(g);
+    g.connect(dest);
+    osc.start(now);
+    osc.stop(now + dur + 0.02);
+    return g;
+  }
+
+  function pitched(freq, row) {
+    var m = 1;
+    for (var i = 0; i < row; i++) m *= 1.06;
+    return freq * m;
+  }
+
+  function canPlayGame() {
+    return !!(soundOn && audioCtx && gameGain && screen === "play");
+  }
+
+  function playTick() {
+    if (!canPlayGame()) return;
+    tone("sine", 990, 990, 0.07, 0.028, 0, gameGain);
+  }
+
+  function playClick() {
+    if (!soundOn || !audioCtx || !compressor) return;
+    var g = tone("square", 720, 480, 0.18, 0.035, 0, compressor);
+    if (g) liveClicks.push(g);
+  }
+
+  function playThuds() {
+    if (!canPlayGame()) return;
+    tone("sine", 150, 80, 0.6, 0.08, 0, gameGain);
+    tone("sine", 110, 62, 0.55, 0.09, 0.09, gameGain);
+  }
+
+  function playLand(side, row) {
+    if (!canPlayGame()) return;
+    if (side === "coral") {
+      tone("sine", pitched(430, row), pitched(215, row), 0.58, 0.15, 0, gameGain);
+      var src = audioCtx.createBufferSource();
+      src.buffer = noiseBuffer();
+      var g = audioCtx.createGain();
+      var now = audioCtx.currentTime;
+      g.gain.setValueAtTime(0.12, now);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.05);
+      var filter = audioCtx.createBiquadFilter();
+      filter.type = "highpass";
+      filter.frequency.value = 1600;
+      src.connect(filter);
+      filter.connect(g);
+      g.connect(gameGain);
+      src.start(now);
+      src.stop(now + 0.05);
+    } else {
+      tone("triangle", pitched(680, row), pitched(470, row), 0.5, 0.13, 0, gameGain);
+      tone("sine", pitched(1360, row), pitched(940, row), 0.12, 0.13, 0, gameGain);
+    }
+  }
+
+  function playStartNotes() {
+    if (!canPlayGame()) return;
+    tone("sine", 392, 392, 0.48, 0.12, 0, gameGain);
+    tone("sine", 523, 523, 0.48, 0.14, 0.13, gameGain);
+  }
+
+  function playFanfare(kind) {
+    if (!canPlayGame()) return;
+    var use = kind;
+    if (gameMode === "duo" && use === "loss") use = "win";
+    if (use === "draw") {
+      tone("sine", 440, 440, 0.5, 0.16, 0, gameGain);
+      tone("sine", 440, 440, 0.5, 0.3, 0.2, gameGain);
+      return;
+    }
+    if (use === "win") {
+      tone("sine", 523, 523, 0.5, 0.16, 0, gameGain);
+      tone("sine", 659, 659, 0.5, 0.16, 0.13, gameGain);
+      tone("sine", 784, 784, 0.5, 0.16, 0.26, gameGain);
+      tone("sine", 1047, 1047, 0.5, 0.16, 0.39, gameGain);
+      return;
+    }
+    tone("sine", 392, 392, 0.5, 0.18, 0, gameGain);
+    tone("sine", 330, 330, 0.5, 0.18, 0.14, gameGain);
+    tone("sine", 262, 262, 0.5, 0.18, 0.28, gameGain);
+  }
+
+  function digitsToColumns(raw) {
+    var out = [];
+    for (var i = 0; i < raw.length; i++) {
+      var ch = raw.charAt(i);
+      if (ch < "1" || ch > "7") break;
+      out.push(ch.charCodeAt(0) - 49);
+    }
+    return out;
+  }
+
+  function boot() {
+    buildWindows();
+    stats = loadStats();
+    soundOn = loadSound();
+    refreshRecs();
+    syncSoundBoxes();
+    var params = new URLSearchParams(window.location.search);
+    var mode = params.get("mode");
+    if (mode === "duo" || mode === "easy" || mode === "normal" || mode === "hard") {
+      var opt = {};
+      var first = params.get("first");
+      if (first) opt.first = first;
+      var seedRaw = params.get("seed");
+      if (seedRaw !== null && /^[0-9]+$/.test(seedRaw)) {
+        var n = Number(seedRaw);
+        if (n <= 4294967295) opt.seed = n;
+      }
+      var mv = params.get("moves");
+      if (mv !== null) opt.moves = digitsToColumns(mv);
+      start(mode, opt);
+    } else {
+      title();
+    }
+    if (typeof window.requestAnimationFrame === "function") window.requestAnimationFrame(frame);
+  }
+
+  window.game = {
+    state: state,
+    start: start,
+    title: title,
+    pause: pause,
+    resume: resume,
+    rematch: rematch,
+    play: play,
+    aimAt: aimAt,
+    advance: advance,
+    screenOf: screenOf,
+    colAt: colAt,
+    levels: levels,
+    pick: pick,
+    scores: scores,
+    sound: sound,
+    audioPeak: audioPeak
+  };
+
+  boot();
+})();
+</script>
+</body>
+</html>
