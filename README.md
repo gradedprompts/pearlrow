@@ -2,7 +2,7 @@
 
 A four-in-a-row game in one HTML file, built by a single prompt in Cursor (Grok 4.7, medium effort).
 
-Play it: https://gradedprompts.github.io/pearlrow/
+Play it: https://games.gradedprompts.com/pearlrow/
 
 `index.html` is the unedited output of one run of the prompt. Nothing was changed by hand after the run.
 SHA-256: `24891a844d9d724ed4fd3ed1eb11298bc673833a944c74a5e0eddb49513b7795`
